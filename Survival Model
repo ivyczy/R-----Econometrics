@@ -1,0 +1,13 @@
+##Survival Model
+#Kaplan-Meier Estimates of survivor function
+library(foreign)
+d<-read.dta("X:/gehan.dta")
+install.packages("survival")
+library(survival)
+fit <- survfit(Surv(weeks, relapse)~group, data = d)
+plot(fit, lty = 2:3)
+legend(23, 1, c("Control", "Treatment"), lty = 2:3)
+  #estimate simple exponential survival model
+form<-as.formula(relapse~group+offset(log(weeks)))
+haz_glm<-glm(form,family=poisson("log"),data=d)
+summary(haz_glm)
