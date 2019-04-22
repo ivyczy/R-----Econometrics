@@ -1,0 +1,48 @@
+##Generized Linear Regression
+library(foreign)
+d<-read.dta("X:/org_example.dta")
+View(d)
+str(d$year)
+summary(d$nilf_predict)
+#PREDICTION
+glm_logit<-glm(nilf~age+educ,d,family=binomial(link="logit"))
+glm_predict_1<-predict(glm_logit) #predicts for none NA
+summary(glm_predict_1) #out of range(0~1)
+length(glm_predict_1)
+nrow(d)
+#Correct Prediction
+glm_predict_3<-predict(glm_logit,newdata=d,type="response",se=TRUE)
+d$nilf_predict<-as.numeric(glm_predict_3)#New Column of Predictions
+
+#Joint Test:Likelihood Ratio
+poissonreg<-glm(hourslw~age+educ,d,family=poisson(link="log"))
+summary(poissonreg)
+poissonreg2<-glm(hourslw~age,d,family=poisson(link="log"))
+summary(poissonreg2) #restricted model
+LR<-(poissonreg2$deviance-poissonreg$deviance) #D=Da-D
+chi_crit<-qchisq(.95, df=4)
+ifelse(LR>chi_crit,"Reject the restrictions", "Fail to reject the restrictions")
+#pchisq(LR, 4, lower.tail = FALSE)
+install.packages("lmtest")
+
+library(lmtest)
+poissonreg<-glm(hourslw~age+educ,d,family=poisson(link="log"))
+summary(poissonreg)
+lrtest(poissonreg,"educ")
+
+ptm<-proc.time()
+#reg
+
+proc.time() - ptm
+##Multiple Choise
+install.packages("mlogit")
+data("Cracker", package = "mlogit")
+str(Cracker)
+library(mlogit)
+data_c<-mlogit.data(Cracker, shape="wide", choice="choice",varying=c(2:13))
+m <- mlogit(choice~price+disp+feat,data_c)
+summary(m)
+m2 <- mlogit(choice~0|price+disp+feat,data_c)
+summary(m2)
+
+
