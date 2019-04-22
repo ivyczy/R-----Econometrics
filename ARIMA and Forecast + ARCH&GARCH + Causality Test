@@ -1,0 +1,132 @@
+##ARIMA
+#AR(1)
+AR1<-function(n,phi){
+  es<-rnorm(n)
+  Y<-rep(0,n)
+  for(i in 2:length(Y)){
+    Y[i]<-phi*Y[i-1]+es[i] #Y1=0?
+  }
+  return(Y)
+}
+par(mfrow=c(2,3))
+plot(AR1(100,0.1),type='l',main="phi=0.1",xlab='t',ylab="Y")
+plot(AR1(100,0.5),type='l',main="phi=0.5",xlab='t',ylab="Y")
+plot(AR1(100,0.9),type='l',main="phi=0.9",xlab='t',ylab="Y")
+plot(AR1(100,1),type='l',main="phi=1",xlab='t',ylab="Y")
+plot(AR1(100,1.5),type='l',main="phi=1.5",xlab='t',ylab="Y")
+plot(AR1(100,2),type='l',main="phi=2",xlab='t',ylab="Y")
+      #construct AR(1) correlogram "ACF"
+d<-read.csv("X:/231Intl Fin/231data.csv")
+acf(d$s,lag.max=15,type="correlation")
+par(mfrow=c(2,3))
+acf(AR1(100,0.1),lag.max=10,type="correlation")
+acf(AR1(100,2),lag.max=10,type="correlation")
+#AR(p)
+ARp<-function(n,phi){
+  p<-length(phi)
+  es<-rnorm(n+p)
+  Y<-rep(0,n+p)
+  for(i in (p+1):length(Y)){
+    Y[i]<-t(phi)%*%Y[(i-p):(i-1)]+es[i]
+  }
+  Y<-Y[-(1:p)]
+  return(Y)
+}
+#MA(p)
+MAp<-function(n,theta){
+  d<-length(theta)
+  es<-rnorm(n+d)
+  Y<-rep(0,n+d)
+  for(i in (d+1):length(Y)){
+    Y[i]<-es[i]+t(theta)%*%es[(i-d):(i-1)]
+  }
+  Y<-Y[-(1:d)]
+  return(Y)
+}
+par(mfrow=c(2,3))
+acf(MAp(100,0.1),lag.max=10,type="correlation")
+acf(MAp(100,0.5),lag.max=10,type="correlation")
+acf(MAp(100,0.9),lag.max=10,type="correlation")
+acf(MAp(100,1),lag.max=10,type="correlation")
+acf(MAp(100,1.5),lag.max=10,type="correlation")
+acf(MAp(100,2),lag.max=10,type="correlation")
+#ARIMA(p,d,q) and forecast
+install.packages("quantmod") #download stock price from yahoo finance
+library(quantmod)
+getSymbols("GOOG",from="2007-01-01",to="2014-01-01")
+prices<-GOOG$GOOG.Adjusted
+rets <- dailyReturn(GOOG)
+install.packages("forecast ") #Provide optimal ARIMA model
+library(forecast)
+auto.arima(rets)
+google.arima<-auto.arima(prices)
+google.forecast<-forecast(google.arima,100,level=c(80,95)) #future 40 periods
+plot(google.forecast)
+#ARCH&GARCH Autoregressive Conditional Heteroskedasticity
+library(quantmod)
+getSymbols("^GSPC",from="2001-01-01",to="2015-01-01")
+rets = dailyReturn(GSPC)
+par(mfrow=c(2,1))
+plot(rets)
+plot(GSPC$GSPC.Open)
+install.packages("tseries")
+library(tseries)
+      #garch(data,order=c(p,q)) p: lag of GARCH(ht), q:lag of ARCH(u^2)
+sp500.g=garch(rets,order=c(0,1))
+summary(sp500.g)
+u=predict(sp500.g) #forecast bounds with ARCH(1) for original period
+rets_upper<-rets
+rets_upper$daily.returns<-u[,1]
+rets_lower<-rets
+rets_lower$daily.returns<-u[,2]
+plot(rets, type="l", xlab="time", ylab="daily change",main="SP500 index 2001-2015")
+lines(rets_upper,col="red", lty="dashed",lwd=1.5)
+lines(rets_lower,col="red", lty="dashed",lwd=1.5)
+      #garch(blue) vs arch (black)
+sp500.g2=garch(rets,order=c(1,1))
+u2=predict(sp500.g2)
+rets_upper2<-rets
+rets_upper2$daily.returns<-u2[,1]
+rets_lower2<-rets
+rets_lower2$daily.returns<-u2[,2]
+plot(rets_upper, type="l", xlab="time", ylab="daily change", main="SP500 index 2001-2015",ylim=c(-.07,.07))
+lines(rets_lower)
+lines(rets_upper2,col="blue", lty="dashed",lwd=1)
+lines(rets_lower2,col="blue", lty="dashed",lwd=1)
+      #fGarch package
+install.packages("fGarch")
+library(fGarch)
+           #GARCH estimation with ARMA components
+           #garchFit(~arma(ar,ma)+garch(p,q),data,trace=FALSE)
+garch1<-garchFit(~garch(1,1),data=rets,trace=FALSE)
+summary(garch1)
+garch2<-garchFit(~arma(1,1)+garch(2,1),data=rets,trace=FALSE)
+garch3<-garchFit(~arma(2,1)+garch(2,1),data=rets,trace=FALSE)
+garch4<-garchFit(~arma(2,2)+garch(2,2),data=rets,trace=FALSE)
+par(mfrow=c(2,2))
+predict(garch1,n.ahead=10,plot=TRUE,nx=20)
+predict(garch2,n.ahead=10,plot=TRUE,nx=20)
+predict(garch3,n.ahead=10,plot=TRUE,nx=20)
+predict(garch4,n.ahead=10,plot=TRUE,nx=20)
+plot(garch4)
+plot(garch4,which=1)
+plot(garch4,which=3)
+
+##Estimate VAR: causality and predict
+getSymbols("GOOG",from="2014-11-12",to="2015-11-12")
+vol<-GOOG$GOOG.Volume
+price<-GOOG$GOOG.Open
+      # reduced form VAR by hand
+n<-length(price)
+regPrice<-lm(price[2:n]~price[1:(n-1)]+vol[1:(n-1)])
+regVol<-lm(vol[2:n]~price[1:(n-1)]+vol[1:(n-1)])
+summary(regPrice)
+summary(regVol)
+      #  MSBVAR Package
+install.packages("MSBVAR")
+library(MSBVAR)
+y2<-ts(data.frame(price,vol)) #Initiate the data as a time-series object
+pricevol_var<-reduced.form.var(y2,p=1) #Run the VAR in reduced form with lag 1
+summary(pricevol_var)
+# Granger Causality Test: use history of x to predict y
+granger.test(y2,p=2)
