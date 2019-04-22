@@ -1,0 +1,19 @@
+#Monte Carlo
+B<-10 #repeat B times
+N<-50 #sample size N: test actual model under small samples
+results<-data.frame(matrix(NA, nrow=B, ncol=3))
+names(results)<-c("rep","B0","B1")
+for(rep in 1:B){
+  x<-rnorm(N,mean=0,sd=1)
+  u<-rnorm(N,mean=0,sd=1)
+  y<-x+u
+  fit.B<-lm(y~x)
+  results$rep[rep]<-rep
+  results$B0[rep]<-as.numeric(coef(fit.B)[1])
+  results$B1[rep]<-as.numeric(coef(fit.B)[2])
+}
+par(mfrow=c(2,2))
+plot(density(results$B0),main="Sampling Distribution of B0, B=10")
+abline(v=0)
+plot(density(results$B1),main="Sampling Distribution of B1, B=10")
+abline(v=1)
