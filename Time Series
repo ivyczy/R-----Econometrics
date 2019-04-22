@@ -1,0 +1,56 @@
+## unit root
+Nobs<-100
+x<-AR1(Nobs,0.25)
+y<-AR1(Nobs,1) #Non stationary, unit root
+z<-AR1(Nobs,1.02) #Non stationary
+par(mfrow=c(1,3))
+plot(x,type="l",main="phi=0.25",xlab="t",ylab="Y")
+plot(y,type="l",main="phi=1",xlab="t",ylab="Y")
+plot(z,type="l",main="phi=1.02",xlab="t",ylab="Y")
+plot(diff(x,lag=1),type="l",main="phi=0.25",xlab="t",ylab="Y")
+plot(diff(y,lag=1),type="l",main="phi=1",xlab="t",ylab="Y")
+plot(diff(z,lag=1),type="l",main="phi=1.02",xlab="t",ylab="Y")
+N<-length(z)   #delteyt=gama*yt-1+ut
+summary(lm(diff(x,lag=1)~x[1:(N-1)])) #gama<0 Rejct H0, stationary
+summary(lm(diff(y,lag=1)~y[1:(N-1)])) #can't reject H0. Unit root exist
+summary(lm(diff(z,lag=1)~z[1:(N-1)]))  #can't reject H0. Non stationary
+      #manually
+d1<-z[2:(N-1)]-z[1:(N-2)]
+d2<-z[3:N]-z[2:(N-1)]
+summary(lm(I(d2-d1)~d1)) #beta <0, reject H0. stationary: I(1)
+      #package
+install.packages("tseries")
+library(tseries)
+adf.test(x,k=0) #p<0.1 stationar
+adf.test(y,k=0) #p>0.1
+adf.test(z,k=0) #p>0.1
+      #How often cointegretion (u~I(0)) occur given random time series generated 
+for(i in 1:1000){
+  x<-AR1(N,1)
+  y<-AR1(N,1)
+  errors<-resid(lm(y~x))
+  adftest<-adf.test(errors)
+  p<-adftest$p.value
+  if(i==1){res<-data.frame(p)}
+  if(i>1){res<-rbind(res,data.frame(p))}
+}
+mean(res$p<0.1,na.rm=TRUE) #p<0.1:u~I(0)
+## Time series example
+getSymbols("SPY",from='2014-11-12',to='2015-11-12')
+getSymbols("VOO",from='2014-11-12',to='2015-11-12')
+prices.spy <- SPY$SPY.Open
+prices.voo <- VOO$VOO.Open
+adf.test(prices.spy) #Non sta
+adf.test(prices.voo) #Non sta
+      #spurious regression
+coint <- lm(prices.spy~prices.voo)
+summary(coint)
+beta<-coint$coef
+resid <- prices.spy - (beta[1] + beta[2]*prices.voo)
+adf.test(resid) #p<0.1 : u~I(0) (Cointegration)
+      #Error Correction Model:deltaY~ deltaX + ut-1
+lag.resid<-lag(resid,1)
+dSPY<-prices.spy-lag(prices.spy,1)
+dVOO<-prices.voo-lag(prices.voo,1)
+ecm <-lm(dSPY~dVOO+lag.resid)
+summary(ecm) #pi=-0.9: equilibrium reached gradually
