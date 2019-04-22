@@ -1,0 +1,60 @@
+#Bootstrap
+   #sample(x, size, replace = FALSE, prob = NULL) #size:observations in desired sample
+         #If "x" is a number, is draws samples from 1:x
+         #If "x" is a vector, is draws samples from that vector
+   #df[sample(nrow(df), n, replace=TRUE),]
+form<-as.formula(log(rw)~educ)
+fit.full<-lm(form,subd)
+randomSample = function(df,n) {
+  return(df[sample(nrow(df),n),])
+}
+   #resampling 1
+B<-1000
+N<-1000 # observations in desired sample
+resultsB<-matrix(NA,nrow=B,ncol = (length(coef(fit.full))+1))
+for(rep in 1:B){
+  fit.B<-lm(form,randomSample(subd,N))
+  coef.B<-as.numeric(coef(fit.B))
+  resultsB[rep,1]<-rep
+  resultsB[rep,2:ncol(resultsB)]<-t(as.matrix(coef.B))
+}
+     #resampling 2:residual resampling
+subd<-subset(subd,(!is.na(rw))&(!is.na(educ)))
+form<-as.formula(log(rw)~educ)
+fit.full<-lm(form,subd)
+resid.full<-as.numeric(fit.full$residuals)
+predict.full<-as.numeric(fit.full$fitted.values)
+B<-1000
+resultsR<-matrix(NA,nrow=B,ncol = (length(coef(fit.full))+1))
+for(rep in 1:B){
+  rand.resid<-sample(resid.full, nrow(subd),replace=TRUE)
+  subd$rw_boot<-predict.full+rand.resid
+  fit.B<-lm(rw_boot~educ,subd)
+  coef.B<-as.numeric(coef(fit.B))
+  resultsR[rep,1]<-rep
+  resultsR[rep,2:ncol(resultsR)]<-t(as.matrix(coef.B))
+}
+       #resampling 3:wild resampling
+resid.full<-as.numeric(fit.full$residuals)
+predict.full<-as.numeric(fit.full$fitted.values)
+B<-1000
+resultsW<-matrix(NA,nrow=B,ncol = (length(coef(fit.full))+1))
+for(rep in 1:B){
+  rand.resid<-sample(resid.full, nrow(subd),replace=TRUE)
+  newresid<-ifelse(runif(nrow(subd),0,1)>0.5,rand.resid,-rand.resid)
+  subd$rw_boot<-predict.full+newresid
+  fit.B<-lm(rw_boot~educ,subd)
+  coef.B<-as.numeric(coef(fit.B))
+  resultsW[rep,1]<-rep
+  resultsW[rep,2:ncol(resultsW)]<-t(as.matrix(coef.B))
+}
+   #
+resultsB<-as.data.frame(resultsB)
+names(resultsB)<-c("rep",names(coef(fit.full)))
+names(resultsB)[2]<-"Intercept"
+   #95% CI
+quantile(resultsB$Intercept,prob=c(0.025,0.975),na.rm=TRUE)
+quantile(resultsB$educCollege,prob=c(0.025,0.975),na.rm=TRUE)
+quantile(resultsB$educAdvanced,prob=c(0.025,0.975),na.rm=TRUE)
+plot(density(resultsB$educAdvanced), main="Coefficient on Advanced Degree")
+abline(v=coef(fit.full)[5])
